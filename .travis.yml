@@ -1,0 +1,8 @@
+os: linux
+dist: trusty
+language: c
+script:
+  - cmake ./CMakeLists.txt
+  - for PROJECT in ./*/CMakeLists.txt; do
+      cd ${PROJECT%*/*} && make && cd ../;
+    done

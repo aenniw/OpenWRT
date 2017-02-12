@@ -1,0 +1,1 @@
+# [Sms4TV](https://wiki.samygo.tv/?title=Desktop_applications_list#SMS4TV) port for OpenWRT

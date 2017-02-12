@@ -1,0 +1,234 @@
+#!/usr/bin/env python
+
+import appindicator
+import argparse
+import gobject
+import gtk
+import pynotify
+import requests
+import signal
+import subprocess
+
+icon_notif = "/usr/share/icons/Humanity/devices/48/gnome-dev-harddisk-usb.svg"
+icon_app = "/usr/share/icons/Humanity/devices/48/drive-removable-media-usb.svg"
+icon_connected = "/usr/share/icons/Humanity/actions/48/dialog-apply.svg"
+
+rest_handler = None
+usbip_handler = None
+devices = {}
+
+
+class Device:
+    def __init__(self, uuid, name, bus_remote, host="localhost"):
+        self.uuid = uuid
+        self.bus_remote = bus_remote
+        self.name = name
+        self.host = host
+        self.menu_entry = gtk.ImageMenuItem(self.name, self.uuid)
+        self.menu_entry.set_always_show_image(True)
+        self.menu_entry.connect_object("activate", self.click, self.name)
+        if usbip_handler.get_local_busid(self.uuid).strip():
+            self.attached = True
+            self.menu_entry.set_image(Notification.get_img(icon_connected))
+        else:
+            self.attached = False
+        self.menu_entry.show()
+
+    @staticmethod
+    def parse_devices_rest(resp, host):
+        busses = {}
+        devices = {}
+        for line in resp.split('\n'):
+            if line:
+                uuid = line.strip()[-10:-1].strip()
+                if "- busid" not in line:
+                    devices[uuid] = Device(uuid, line.strip()[:-11].strip(), busses[uuid], host=host)
+                else:
+                    busses[uuid] = line.strip()[7:-11].strip()
+        return devices
+
+    def get_entry(self):
+        return self.menu_entry
+
+    def click(self, resp):
+        if self.attached:
+            self.attached = not self.deattach()
+            if not self.attached:
+                self.menu_entry.set_image(None)
+                Notification.show("UsbIp Indicator", "Device " + self.name + " disconnected")
+                self.unbind()
+        elif self.is_binded() or self.bind():
+            self.attached = self.attach()
+            if self.attached:
+                self.menu_entry.set_image(Notification.get_img(icon_connected))
+                Notification.show("UsbIp Indicator", "Device " + self.name + " connected")
+            else:
+                Notification.show("UsbIp Indicator", "Device " + self.name + " could not connect")
+
+    def is_binded(self):
+        resp = usbip_handler.list_devices()
+        if not resp:
+            return False
+        for line in resp.split('\n'):
+            if line[-10:-1] == self.uuid:
+                return True
+        return False
+
+    def bind(self):
+        return rest_handler.bind_device(self.bus_remote)
+
+    def unbind(self):
+        return rest_handler.unbind_device(self.bus_remote)
+
+    def attach(self):
+        return usbip_handler.attach_devices(self.bus_remote)
+
+    def deattach(self):
+        return usbip_handler.deattach_devices(self.bus_remote)
+
+
+class RestHandler:
+    def __init__(self, user, password, host):
+        self.user = user
+        self.passwd = password
+        self.host = host
+
+    @staticmethod
+    def get_rest(arg, user, password, host="localhost", port=1500):
+        try:
+            response = requests.get("http://" + host + ":" + port.__str__() + "/" + arg, auth=(user, password),
+                                    timeout=5)
+        except requests.exceptions.ReadTimeout:
+            return None
+        except requests.exceptions.ConnectionError as e:
+            if "[Errno 111]" in str(e.args[0]):
+                return None
+            return ""
+        return response.content
+
+    def get_devices(self):
+        return self.get_rest("list", user=self.user, password=self.passwd, host=self.host)
+
+    def bind_device(self, device):
+        resp = self.get_rest("bind/" + device, user=self.user, password=self.passwd, host=self.host)
+        return "complete" in resp
+
+    def unbind_device(self, device):
+        resp = self.get_rest("unbind/" + device, user=self.user, password=self.passwd, host=self.host)
+        return "complete" in resp
+
+
+class UsbIpHandler:
+    def __init__(self, host):
+        self.host = host
+
+    @staticmethod
+    def get_local_busid(uuid):
+        process = subprocess.Popen("sudo usbip-overlay port", stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE,
+                                   shell=True)
+        port = ""
+        for line in str(process.communicate()[0]).split('\n'):
+            if "Port" in line:
+                port = line.strip()[5:][:2].strip()
+            if line.strip()[-10:-1] == uuid:
+                return port
+        return ""
+
+    def list_devices(self):
+        process = subprocess.Popen("sudo usbip-overlay list -r " + self.host, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                   shell=True)
+        return str(process.communicate()[0])
+
+    def attach_devices(self, busid):
+        process = subprocess.Popen("sudo usbip-overlay attach -r " + self.host + " -b " + busid, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE,
+                                   shell=True)
+        resp = str(process.communicate())
+        return "error" not in resp
+
+    def deattach_devices(self, uuid):
+        busid = self.get_local_busid(uuid)
+        process = subprocess.Popen("sudo usbip-overlay detach -p " + busid, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                   shell=True)
+        resp = str(process.communicate())
+        return "error" not in resp
+
+
+class Notification:
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def get_img(icon):
+        img = gtk.Image()
+        img.set_from_file(icon)
+        return img
+
+    @staticmethod
+    def show(title, msg):
+        notice = pynotify.Notification(msg, icon_notif)
+        notice.update(title, msg, icon_notif)
+        notice.show()
+        return
+
+
+def on_refresh():
+    global devices
+    resp = rest_handler.get_devices()
+    if resp is not None:
+        devices_new = Device.parse_devices_rest(resp, rest_handler.host)
+        for uuid in devices_new:
+            if uuid not in devices:
+                devices[uuid] = devices_new[uuid]
+                menu.append(devices[uuid].menu_entry)
+        uuids = []
+        for uuid in devices:
+            if uuid not in devices_new:
+                menu.remove(devices[uuid].menu_entry)
+                uuids.append(uuid)
+        for uuid in uuids:
+            del devices[uuid]
+    gobject.timeout_add(1000, on_refresh)
+
+
+def on_exit(signum, frame):
+    global devices
+    for device in devices.itervalues():
+        if device.attached:
+            device.deattach()
+            device.unbind()
+    raise SystemExit
+
+
+def quit(response):
+    Notification.show("UsbIp Indicator", "UsbIp Indicator quits. Cleaning resources.")
+    on_exit(0, None)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='USBIP indicator')
+    parser.add_argument('host', type=str, help='REST host')
+    parser.add_argument('-u', type=str, default="admin", help='REST Account')
+    parser.add_argument('-p', type=str, default="admin", help='REST Password')
+    args = parser.parse_args()
+
+    signal.signal(signal.SIGTERM, on_exit)
+    rest_handler = RestHandler(args.u, args.p, args.host)
+    usbip_handler = UsbIpHandler(args.host)
+
+    pynotify.init("USBIPIndicator")
+    ind = appindicator.Indicator("USBIP-manager", icon_app, appindicator.CATEGORY_HARDWARE)
+    ind.set_status(appindicator.STATUS_ACTIVE)
+    menu = gtk.Menu()
+    ind.set_menu(menu)
+
+    # create items
+    quit_item = gtk.MenuItem("Quit")
+
+    menu.append(quit_item)
+    quit_item.connect_object("activate", quit, "Quit")
+    quit_item.show()
+
+    gobject.timeout_add(1000, on_refresh)
+    gtk.main()
