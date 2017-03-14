@@ -18,7 +18,7 @@ sudo apt-get install cmake make
 ```
 cmake ./CMakeLists.txt
 for PROJECT in $(ls -d ./*/CMakeLists.txt); do \
-    cd ${PROJECT%*/*} && ls; cd ..; \
+    cd ${PROJECT%*/*} && make; cd ..; \
 done
 ```
 
