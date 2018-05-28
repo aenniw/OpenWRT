@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 
-TOOLCHAIN_URL="https://downloads.openwrt.org/chaos_calmer/15.05/ar71xx/generic/OpenWrt-SDK-15.05-ar71xx-generic_gcc-4.8-linaro_uClibc-0.9.33.2.Linux-x86_64.tar.bz2"
-TOOLCHAIN_DIR="OpenWrt-Toolchain"
-TOOLCHAIN_CMAKE="${1}/toolchain.cmake"
+TOOLCHAIN_URL=${2}
+TOOLCHAIN_ARCH=${TOOLCHAIN_URL#*/trunk/} && \
+    TOOLCHAIN_ARCH=${TOOLCHAIN_ARCH%/generic/*}
+TOOLCHAIN_DIR=".OpenWrt-Toolchain-"${TOOLCHAIN_ARCH}
+TOOLCHAIN_CMAKE="${1:-./}/toolchain.cmake"
 
 if [ ! -d ${TOOLCHAIN_DIR} ]; then
     mkdir ${TOOLCHAIN_DIR}

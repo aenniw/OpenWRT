@@ -1,5 +1,9 @@
 .idea/
 bin/
 cmake-build-debug/
-OpenWrt-Toolchain/
+.OpenWrt-Toolchain-*/
 /toolchain.cmake
+CMakeFiles
+CMakeCache.txt
+cmake_install.cmake
+Makefile

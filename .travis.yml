@@ -2,7 +2,12 @@ os: linux
 dist: trusty
 language: c
 script:
-  - cmake ./CMakeLists.txt
-  - for PROJECT in ./*/CMakeLists.txt; do
-      cd ${PROJECT%*/*} && make && cd ../;
+  - for ARCH in ipq806x ar71xx; do
+      cmake ./CMakeLists.txt -D${ARCH}=true;
+      for PROJECT in $(ls -d ./*/CMakeLists.txt); do
+          cd ${PROJECT%*/*} && \
+              make && \
+              make clean && \
+              cd ..;
+      done;
     done
