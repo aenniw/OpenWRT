@@ -19,20 +19,21 @@
 You must install additional files (like asm/socket.h) from your Samsung opensource files.
 */
 
-#define SUMMER_TIME   0     // local timezone (UTC+...) for summer time
-#define WINTER_TIME   0     // local timezone (UTC+...) for winter time
+#define SUMMER_TIME 0 // local timezone (UTC+...) for summer time
+#define WINTER_TIME 0 // local timezone (UTC+...) for winter time
 
 #include <stdio.h>
 #include <string.h>
 
 #ifdef _WIN32
-#include <winsock.h>    // windows only
+#include <winsock.h> // windows only
 #else
 
-#include <netdb.h>      // linux only
+#include <netdb.h> // linux only
 #include <unistd.h>
+#include <time.h>
 
-#define UTC2LOCAL       // conversion from UTC time to local time? (use for cross-compilation only)
+#define UTC2LOCAL // conversion from UTC time to local time? (use for cross-compilation only)
 #endif
 
 #define PORT 52235
@@ -48,19 +49,22 @@ char buffer[MAXDATASIZE + 1];
 char mesbuf[MAXDATASIZE + 1];
 int messageID = 0;
 
-
 // send data to the socket
-int datasend(char *s) {
+int datasend(char *s)
+{
     int bytes_to_send, bytes_sent;
 
     bytes_to_send = strlen(s);
-    if (bytes_to_send > 0) {
-        if ((bytes_sent = send(sockfd, s, bytes_to_send, 0)) == -1) {
+    if (bytes_to_send > 0)
+    {
+        if ((bytes_sent = send(sockfd, s, bytes_to_send, 0)) == -1)
+        {
             printf("SMS4TV ERROR: cannot send!\n");
             return 1;
         }
 
-        if (bytes_sent != bytes_to_send) {
+        if (bytes_sent != bytes_to_send)
+        {
             printf("SMS4TV ERROR: not all bytes has been sent!\n");
             return 1;
         }
@@ -69,67 +73,68 @@ int datasend(char *s) {
     return 0;
 }
 
-
 // build SOAP message
-int compileSoapMessage(char *receiver, char *message, char *sender) {
+int compileSoapMessage(char *receiver, char *message, char *sender)
+{
     int i, ln;
     int allInfo = 1;
     messageID++;
     char *receiverNumber = "";
     char *senderNumber = "";
     ln = strlen(message);
-    if (ln > 0) {
-        for (i = 0; i < ln; i++) {
+    if (ln > 0)
+    {
+        for (i = 0; i < ln; i++)
+        {
 #ifdef _WIN32
-            switch(message[i])
+            switch (message[i])
             {
                 // remove national characters (Polish)
             case 0xA5:
-                message[i]='a';
+                message[i] = 'a';
                 break;
             case 0x86:
-                message[i]='c';
+                message[i] = 'c';
                 break;
             case 0xA9:
-                message[i]='e';
+                message[i] = 'e';
                 break;
             case 0xE4:
-                message[i]='n';
+                message[i] = 'n';
                 break;
             case 0xA2:
-                message[i]='o';
+                message[i] = 'o';
                 break;
             case 0x98:
-                message[i]='s';
+                message[i] = 's';
                 break;
             case 0xAB:
             case 0xBE:
-                message[i]='z';
+                message[i] = 'z';
                 break;
             case 0xA4:
-                message[i]='A';
+                message[i] = 'A';
                 break;
             case 0x8F:
-                message[i]='C';
+                message[i] = 'C';
                 break;
             case 0xA8:
-                message[i]='E';
+                message[i] = 'E';
                 break;
             case 0xE3:
-                message[i]='N';
+                message[i] = 'N';
                 break;
             case 0xE0:
-                message[i]='O';
+                message[i] = 'O';
                 break;
             case 0x97:
-                message[i]='S';
+                message[i] = 'S';
                 break;
             case 0x8D:
             case 0xBD:
-                message[i]='Z';
+                message[i] = 'Z';
                 break;
-            default:
-                ;
+            default:;
             }
 #endif
             if (!(((message[i] >= 'A') && (message[i] <= 'Z')) ||
@@ -147,21 +152,25 @@ int compileSoapMessage(char *receiver, char *message, char *sender) {
                   (message[i] == '(') || (message[i] == ')') ||
                   (message[i] == '[') || (message[i] == ']') ||
                   (message[i] == '{') || (message[i] == '}') ||
-                  (message[i] == '/') || (message[i] == '\'')
-            ))
+                  (message[i] == '/') || (message[i] == '\'')))
                 message[i] = '_';
         }
-    } else return 1;
+    }
+    else
+        return 1;
 
-    if (receiver[0] == 0) strcpy(receiver, "?");
-    if (sender[0] == 0) strcpy(sender, "?");
+    if (receiver[0] == 0)
+        strcpy(receiver, "?");
+    if (sender[0] == 0)
+        strcpy(sender, "?");
 
     time_t t;
     struct tm *tm;
     t = time(NULL);
     tm = localtime(&t);
     int y = tm->tm_year;
-    if (y < 1900) y += 1900;
+    if (y < 1900)
+        y += 1900;
     int month = tm->tm_mon + 1;
     int day = tm->tm_mday;
     int wday = tm->tm_wday;
@@ -170,45 +179,64 @@ int compileSoapMessage(char *receiver, char *message, char *sender) {
 #ifdef UTC2LOCAL
     int monthtab[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
     int leap = ((y % 4) == 0) ? 1 : 0;
-    if ((y % 100) == 0) leap = ((y % 400) == 0) ? 1 : 0;
+    if ((y % 100) == 0)
+        leap = ((y % 400) == 0) ? 1 : 0;
     monthtab[2] = 28 + leap;
     int zone = WINTER_TIME;
-    if ((month) && (month < 10)) zone = SUMMER_TIME;
-    else if ((month == 3) || (month == 10)) {
-        if ((day + 8) > monthtab[month]) {
-            if (month == 3) {
+    if ((month) && (month < 10))
+        zone = SUMMER_TIME;
+    else if ((month == 3) || (month == 10))
+    {
+        if ((day + 8) > monthtab[month])
+        {
+            if (month == 3)
+            {
                 zone = SUMMER_TIME;
-                if ((wday == 0) && (hour < 1)) zone = WINTER_TIME;
+                if ((wday == 0) && (hour < 1))
+                    zone = WINTER_TIME;
             }
-            if ((month == 10) && (wday == 0) && (hour < 1)) zone = SUMMER_TIME;
-        } else {
-            if (month == 10) zone = SUMMER_TIME;
+            if ((month == 10) && (wday == 0) && (hour < 1))
+                zone = SUMMER_TIME;
+        }
+        else
+        {
+            if (month == 10)
+                zone = SUMMER_TIME;
         }
     }
 
     hour += zone;
-    if (hour > 23) {
+    if (hour > 23)
+    {
         hour -= 24;
         wday++;
-        if (wday > 6) wday = 0;
+        if (wday > 6)
+            wday = 0;
         day++;
-        if (day > monthtab[month]) {
+        if (day > monthtab[month])
+        {
             day = 1;
             month++;
-            if (month > 12) {
+            if (month > 12)
+            {
                 month = 1;
                 y++;
                 tm->tm_year++;
             }
         }
-    } else if (hour < 0) {
+    }
+    else if (hour < 0)
+    {
         hour += 24;
         wday--;
-        if (wday < 0) wday = 6;
+        if (wday < 0)
+            wday = 6;
         day--;
-        if (day < 1) {
+        if (day < 1)
+        {
             month--;
-            if (month < 1) {
+            if (month < 1)
+            {
                 month = 12;
                 y--;
                 tm->tm_year--;
@@ -252,7 +280,8 @@ int compileSoapMessage(char *receiver, char *message, char *sender) {
     return 0;
 }
 
-int backupMessage(char *receiver, char *message, char *sender) {
+int backupMessage(char *receiver, char *message, char *sender)
+{
     FILE *f;
     f = fopen("/etc/sms4TV.msg", "a");
     fprintf(f, "@@%s@@ @@%s@@ @@%s@@\n", receiver, message, sender);
@@ -261,14 +290,19 @@ int backupMessage(char *receiver, char *message, char *sender) {
 }
 
 // main function
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     char s[512];
     int err = 0;
     int resend = 0;
     int status = 1;
     strcpy(host, DEFAULT_HOST);
-    if ((argc == 2) && (0 == strcmp(argv[1], "-resend"))) { resend = 1; }
-    if ((resend == 0) && ((argc < 3 + 1) || (argc > 4 + 1))) {
+    if ((argc == 2) && (0 == strcmp(argv[1], "-resend")))
+    {
+        resend = 1;
+    }
+    if ((resend == 0) && ((argc < 3 + 1) || (argc > 4 + 1)))
+    {
         printf("SMS4TV 1.03: freeware command-line utility for Samsung TV-set. (c)2010 geo650\n\n");
         printf("This tool can send short message to your TV-set using network connection.\n\n");
         printf("usage: sms <to> <message> <from> [host]\n");
@@ -277,29 +311,37 @@ int main(int argc, char *argv[]) {
         printf("and thanks to all the people from SamyGO forum.\n");
         return 1;
     }
-    if (resend == 0) {
-        if (argc > 3 + 1) strcpy(host, argv[4]);
+    if (resend == 0)
+    {
+        if (argc > 3 + 1)
+            strcpy(host, argv[4]);
         backupMessage(argv[1], argv[2], argv[3]);
     }
 
     FILE *fi;
     fi = fopen("/etc/sms4TV.msg", "r");
-    if (fi == NULL)return 1;
+    if (fi == NULL)
+        return 1;
     char line[256];
     char out[3][256];
-    while (fgets(line, sizeof(line), fi) != NULL) {
+    while (fgets(line, sizeof(line), fi) != NULL)
+    {
         int konec = strlen(line);
         int i;
         int nasiel = 0;
         int pocitadlo = 0;
-        for (i = 0; i < konec - 2; i++) {
-            if ((line[i] == '@') && (line[i + 1] == '@')) {
+        for (i = 0; i < konec - 2; i++)
+        {
+            if ((line[i] == '@') && (line[i + 1] == '@'))
+            {
                 nasiel++;
-                if (nasiel % 2 == 0)out[((nasiel - 1) / 2)][pocitadlo] = '\0';
+                if (nasiel % 2 == 0)
+                    out[((nasiel - 1) / 2)][pocitadlo] = '\0';
                 pocitadlo = 0;
                 i = i + 2;
             }
-            if (nasiel % 2 == 1) {
+            if (nasiel % 2 == 1)
+            {
                 out[(nasiel / 2)][pocitadlo] = line[i];
                 pocitadlo++;
             }
@@ -309,7 +351,7 @@ int main(int argc, char *argv[]) {
         WSADATA wsaData;
         int iResult;
 
-        iResult = WSAStartup(MAKEWORD(2,2), &wsaData);
+        iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
         if (iResult != NO_ERROR)
         {
             printf("SMS4TV: WSAStartup failed: %d\n", iResult);
@@ -318,13 +360,15 @@ int main(int argc, char *argv[]) {
         }
 #endif
 
-        if ((he = gethostbyname(host)) == NULL) {
+        if ((he = gethostbyname(host)) == NULL)
+        {
             printf("SMS4TV ERROR: cannot get host info!\n");
             fclose(fi);
             return 1;
         }
 
-        if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+        if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+        {
             printf("SMS4TV ERROR: cannot create socket!\n");
             fclose(fi);
             return 1;
@@ -332,10 +376,11 @@ int main(int argc, char *argv[]) {
 
         their_addr.sin_family = AF_INET;
         their_addr.sin_port = htons(PORT);
-        their_addr.sin_addr = *((struct in_addr *) he->h_addr);
+        their_addr.sin_addr = *((struct in_addr *)he->h_addr);
         memset(&(their_addr.sin_zero), '\0', 8);
 
-        if (connect(sockfd, (struct sockaddr *) &their_addr, sizeof(struct sockaddr)) == -1) {
+        if (connect(sockfd, (struct sockaddr *)&their_addr, sizeof(struct sockaddr)) == -1)
+        {
             printf("SMS4TV ERROR: cannot connect!\n");
             fclose(fi);
             return 1;
@@ -360,14 +405,18 @@ int main(int argc, char *argv[]) {
 
         numbytes = 1;
         status = 1;
-        while (numbytes && status) {
-            if (err == 0) {
-                if ((numbytes = recv(sockfd, buffer, MAXDATASIZE, 0)) == -1) {
+        while (numbytes && status)
+        {
+            if (err == 0)
+            {
+                if ((numbytes = recv(sockfd, buffer, MAXDATASIZE, 0)) == -1)
+                {
                     printf("SMS4TV ERROR: cannot receive!\n");
                     fclose(fi);
                     return 1;
                 }
-                if (strstr(buffer, "200 OK")) status = 0;
+                if (strstr(buffer, "200 OK"))
+                    status = 0;
             }
         }
 
@@ -384,4 +433,3 @@ int main(int argc, char *argv[]) {
     remove("/etc/sms4TV.msg");
     return 0;
 }
-

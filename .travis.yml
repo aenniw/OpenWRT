@@ -1,13 +1,12 @@
 os: linux
 dist: trusty
-language: c
+addons:
+    apt:
+        packages:
+            - wget
+            - tar
+            - make
+            - cmake
 script:
-  - for ARCH in ipq806x ar71xx; do
-      cmake ./CMakeLists.txt -D${ARCH}=true;
-      for PROJECT in $(ls -d ./*/CMakeLists.txt); do
-          cd ${PROJECT%*/*} && \
-              make && \
-              make clean && \
-              cd ..;
-      done;
-    done
+    - ./make ar71xx
+    - ./make ipq40xx

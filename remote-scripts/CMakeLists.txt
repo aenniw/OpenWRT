@@ -3,7 +3,7 @@ project(remot-scripts)
 
 set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
-include(../toolchain.cmake)
+include(../build/toolchain.cmake)
 
 add_executable(rs-client
         ${SOURCE_DIR}/client.c)

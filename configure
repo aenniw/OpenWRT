@@ -1,21 +1,27 @@
 #!/usr/bin/env bash
 
+TOOLCHAIN_PREFIX="openwrt-sdk"
 TOOLCHAIN_URL=${2}
-TOOLCHAIN_ARCH=${TOOLCHAIN_URL#*/trunk/} && \
-    TOOLCHAIN_ARCH=${TOOLCHAIN_ARCH%/generic/*}
+TOOLCHAIN_ARCH=${TOOLCHAIN_URL%/generic/*} && \
+    TOOLCHAIN_ARCH=${TOOLCHAIN_ARCH##*/} 
 TOOLCHAIN_DIR=".OpenWrt-Toolchain-"${TOOLCHAIN_ARCH}
-TOOLCHAIN_CMAKE="${1:-./}/toolchain.cmake"
+TOOLCHAIN_CMAKE="${1:-./}/build/toolchain.cmake"
 
 if [ ! -d ${TOOLCHAIN_DIR} ]; then
     mkdir ${TOOLCHAIN_DIR}
-    wget ${TOOLCHAIN_URL}
-    tar jxf *.tar.bz2 --strip-components=1 -C ./${TOOLCHAIN_DIR}
-    rm  ./*.tar.bz2
+    ls -l . | grep -i ${TOOLCHAIN_PREFIX} || wget ${TOOLCHAIN_URL}
+    ls -l . | grep -i ${TOOLCHAIN_PREFIX} | grep -q tar.bz && \
+        tar jxf *.tar.bz2 --strip-components=1 -C ./${TOOLCHAIN_DIR} && \
+        rm  ./*.tar.bz2
+    ls -l . | grep -i ${TOOLCHAIN_PREFIX} | grep -q tar.xz && \
+        tar xfJ *.tar.xz --strip-components=1 -C ./${TOOLCHAIN_DIR} && \
+        rm  ./*.tar.xz
 fi
+
 if [ ! -f ${TOOLCHAIN_CMAKE} ]; then
     echo "set(ENV{STAGING_DIR} ${PWD}/${TOOLCHAIN_DIR}/staging_dir)" >> ${TOOLCHAIN_CMAKE}
     echo "set(ENV{PATH} `ls -d ${PWD}/${TOOLCHAIN_DIR}/staging_dir/toolchain-*/bin`:\$ENV{PATH})" >> ${TOOLCHAIN_CMAKE}
-    echo "set(CMAKE_C_COMPILER `ls -d ${PWD}/${TOOLCHAIN_DIR}/staging_dir/toolchain-*/bin`/mips-openwrt-linux-gcc)" >> ${TOOLCHAIN_CMAKE}
+    echo "set(CMAKE_C_COMPILER `ls -f ${PWD}/${TOOLCHAIN_DIR}/staging_dir/toolchain-*/bin/*-openwrt-linux-gcc`)" >> ${TOOLCHAIN_CMAKE}
 fi
 
 echo "-- Setting toolchain done"
