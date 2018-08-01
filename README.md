@@ -8,7 +8,7 @@ Applications/ports for [TL-WR1043ND](https://wiki.openwrt.org/toh/tp-link/tl-wr1
 [**Toolchains and binaries**](https://downloads.openwrt.org/) /
 [**Wiki**](https://wiki.openwrt.org/) /
 [**Forum**](https://forum.openwrt.org/) /
-[**ASUS-AC58U flashing**](http://lede-ac58u.zyxmon.org/)
+[**ASUS-AC58U zyxmon**](http://lede-ac58u.zyxmon.org/) or [**ASUS-AC58U OpenWrt**](https://openwrt.org/toh/hwdata/asus/asus_rt-ac58u)
 
 ## Setup environment
 
@@ -22,8 +22,8 @@ sudo apt-get install cmake make wget tar
 To change toolchain add architecture to CMake like so -Dar71xx=true or -Dipq40xx=true
 
 ```bash
-    ./make ar70xx
-    ./make ipq40xx
+./make ar70xx
+./make ipq40xx
 ```
 
 ## SubProjects
