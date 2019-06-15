@@ -24,18 +24,11 @@ You must install additional files (like asm/socket.h) from your Samsung opensour
 
 #include <stdio.h>
 #include <string.h>
-
-#ifdef _WIN32
-#include <winsock.h> // windows only
-#else
-
-#include <netdb.h> // linux only
+#include <netdb.h>
 #include <unistd.h>
 #include <time.h>
 
 #define UTC2LOCAL // conversion from UTC time to local time? (use for cross-compilation only)
-#endif
-
 #define PORT 52235
 #define MAXDATASIZE 512
 #define DEFAULT_HOST "192.168.43.2"
@@ -49,7 +42,6 @@ char buffer[MAXDATASIZE + 1];
 char mesbuf[MAXDATASIZE + 1];
 int messageID = 0;
 
-// send data to the socket
 int datasend(char *s)
 {
     int bytes_to_send, bytes_sent;
@@ -73,7 +65,6 @@ int datasend(char *s)
     return 0;
 }
 
-// build SOAP message
 int compileSoapMessage(char *receiver, char *message, char *sender)
 {
     int i, ln;
@@ -86,57 +77,6 @@ int compileSoapMessage(char *receiver, char *message, char *sender)
     {
         for (i = 0; i < ln; i++)
         {
-#ifdef _WIN32
-            switch (message[i])
-            {
-                // remove national characters (Polish)
-            case 0xA5:
-                message[i] = 'a';
-                break;
-            case 0x86:
-                message[i] = 'c';
-                break;
-            case 0xA9:
-                message[i] = 'e';
-                break;
-            case 0xE4:
-                message[i] = 'n';
-                break;
-            case 0xA2:
-                message[i] = 'o';
-                break;
-            case 0x98:
-                message[i] = 's';
-                break;
-            case 0xAB:
-            case 0xBE:
-                message[i] = 'z';
-                break;
-            case 0xA4:
-                message[i] = 'A';
-                break;
-            case 0x8F:
-                message[i] = 'C';
-                break;
-            case 0xA8:
-                message[i] = 'E';
-                break;
-            case 0xE3:
-                message[i] = 'N';
-                break;
-            case 0xE0:
-                message[i] = 'O';
-                break;
-            case 0x97:
-                message[i] = 'S';
-                break;
-            case 0x8D:
-            case 0xBD:
-                message[i] = 'Z';
-                break;
-            default:;
-            }
-#endif
             if (!(((message[i] >= 'A') && (message[i] <= 'Z')) ||
                   ((message[i] >= 'a') && (message[i] <= 'z')) ||
                   ((message[i] >= '0') && (message[i] <= '9')) ||
@@ -289,7 +229,6 @@ int backupMessage(char *receiver, char *message, char *sender)
     return 0;
 }
 
-// main function
 int main(int argc, char *argv[])
 {
     char s[512];
@@ -346,19 +285,6 @@ int main(int argc, char *argv[])
                 pocitadlo++;
             }
         }
-        //tamtie sracky
-#ifdef _WIN32
-        WSADATA wsaData;
-        int iResult;
-
-        iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-        if (iResult != NO_ERROR)
-        {
-            printf("SMS4TV: WSAStartup failed: %d\n", iResult);
-            fclose(fi);
-            return 1;
-        }
-#endif
 
         if ((he = gethostbyname(host)) == NULL)
         {
@@ -376,7 +302,7 @@ int main(int argc, char *argv[])
 
         their_addr.sin_family = AF_INET;
         their_addr.sin_port = htons(PORT);
-        their_addr.sin_addr = *((struct in_addr *)he->h_addr);
+        their_addr.sin_addr = *((struct in_addr *)he->h_addr_list[0]);
         memset(&(their_addr.sin_zero), '\0', 8);
 
         if (connect(sockfd, (struct sockaddr *)&their_addr, sizeof(struct sockaddr)) == -1)
@@ -420,12 +346,7 @@ int main(int argc, char *argv[])
             }
         }
 
-#ifdef _WIN32
-        closesocket(sockfd);
-        WSACleanup();
-#else
         close(sockfd);
-#endif
 
         printf((err + status) ? "SMS not sent!\n" : "SMS sent successfully.\n");
     }
